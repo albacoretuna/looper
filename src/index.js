@@ -11,7 +11,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import YouTube from "react-youtube";
-import uniq from "lodash.uniq";
+import uniqBy from "lodash.uniqby";
 import styled from "styled-components";
 import "./styles.css";
 
@@ -71,6 +71,11 @@ const TextBox = styled.input`
   padding: 5px;
 `;
 
+/*
+  Each video has a youubeID
+  In history, keep track of each video and give it a title to be shown
+  on the history button. 
+*/
 const initialState = {
   currentTime: 0,
   startTime: 0,
@@ -79,8 +84,9 @@ const initialState = {
   // default to some cat video
   input: "2g811Eo7K8U",
   duration: 0,
-  videoHistory: [],
-  cleanerInput: ""
+  videoHistory: [{youtubeId: "2g811Eo7K8U", title:"cat video"}],
+  cleanerInput: "",
+  title: "cat video"
 };
 
 class App extends React.Component {
@@ -88,26 +94,43 @@ class App extends React.Component {
   componentDidMount = () => {
     const persistedState = window.localStorage.getItem("looperState");
     if (persistedState) {
-      this.setState(JSON.parse(persistedState));
+       this.setState(JSON.parse(persistedState));
     }
   };
 
   persistState = () => {
-    localStorage.setItem("looperState", JSON.stringify(this.state));
+    console.log('persisted')
+     localStorage.setItem("looperState", JSON.stringify(this.state));
   };
 
   handleInputChange = event => {
     this.setState({ input: event.target.value });
   };
 
-  handleVideoChange = () => {
+  handlePlayClick = () => {
     const { videoHistory } = this.state;
-
+    let currentVideo = videoHistory.find((video) => video.youtubeId === this.state.input) || {};
+    currentVideo.title = currentVideo.title;
+    currentVideo.youtubeId = this.state.input;
+    console.log('current video', currentVideo);
     this.setState({
       videoId: this.state.input,
-      videoHistory: uniq([...videoHistory, this.state.input])
-    });
+      videoHistory: uniqBy([...videoHistory, currentVideo], 'youtubeId')
+    }, 
+    this.persistState
+    );
   };
+
+  setTitle = (event) => {
+    const { videoHistory } = this.state;
+    let currentVideo = videoHistory.find((video) => video.youtubeId === this.state.input) || {};
+    currentVideo.title = event.target.value
+    currentVideo.youtubeId = this.state.input;
+    this.setState({
+      title: event.target.value,
+      videoHistory: uniqBy([...videoHistory, currentVideo], 'youtubeId')
+    });
+  }
 
   handleStartChange = event => {
     this.setState({ startTime: parseFloat(event.target.value) });
@@ -119,8 +142,8 @@ class App extends React.Component {
     this.persistState();
   };
 
-  handleHistoryClick = history => {
-    this.setState({ input: history });
+  handleHistoryClick = historyItem => {
+    this.setState({ input: historyItem.youtubeId, title:historyItem.title });
   };
 
   // copied from stackoverflow
@@ -175,7 +198,7 @@ class App extends React.Component {
               this.state.currentTime.toFixed(0)}
             s{" "}
           </div>
-          <PlayButton onClick={this.handleVideoChange}>PLAY</PlayButton>
+          <PlayButton onClick={this.handlePlayClick}>PLAY</PlayButton>
           <Label htmlFor="start">start: {this.state.startTime}s</Label>
           <Slider
             type="range"
@@ -220,21 +243,23 @@ class App extends React.Component {
           <TextBox
             type="search"
             id={"title"}
-            value={this.state.cleanerInput}
-            placeholder={"paste any youtube url"}
-            onChange={this.getYoutubeId}
+            value={this.state.title}
+            placeholder={"title optional"}
+            onChange={this.setTitle}
           />
         </div>
         {this.state.videoHistory.length >= 1 && (
           <HistorySection>
             <div>History:{" "}</div>
-            {uniq(this.state.videoHistory).map(history => (
+            {uniqBy(this.state.videoHistory, 'youtubeId').map((historyItem, i)=> console.log('history item ',historyItem) || (
               <HistoryButton
+                key={i}
                 onClick={() => {
-                  this.handleHistoryClick(history);
+                  
+                  this.handleHistoryClick(historyItem);
                 }}
               >
-                {history}
+                {historyItem.title || historyItem.youtubeId}
               </HistoryButton>
             ))}
             <div>
