@@ -6,6 +6,9 @@
  *
  * Everything is in one file because codesandbox.io
  * once deleted my other files :(
+ * 
+ * TODO: on pasting new link, update title properly
+ * TODO: stop the whole app from rerendering each second
  **/
 
 import React from "react";
@@ -79,12 +82,12 @@ const TextBox = styled.input`
 const initialState = {
   currentTime: 0,
   startTime: 0,
-  endTime: 0,
+  endTime: 5,
   videoId: "",
   // default to some cat video
   input: "2g811Eo7K8U",
   duration: 0,
-  videoHistory: [{youtubeId: "2g811Eo7K8U", title:"cat video"}],
+  videoHistory: [{youtubeId: "2g811Eo7K8U", title:"cat video", startTime: 0, endTime: 5}],
   cleanerInput: "",
   title: "cat video"
 };
@@ -99,7 +102,6 @@ class App extends React.Component {
   };
 
   persistState = () => {
-    console.log('persisted')
      localStorage.setItem("looperState", JSON.stringify(this.state));
   };
 
@@ -112,7 +114,8 @@ class App extends React.Component {
     let currentVideo = videoHistory.find((video) => video.youtubeId === this.state.input) || {};
     currentVideo.title = currentVideo.title;
     currentVideo.youtubeId = this.state.input;
-    console.log('current video', currentVideo);
+    currentVideo.startTime = this.state.startTime;
+    currentVideo.endTime = this.state.endTime;
     this.setState({
       videoId: this.state.input,
       videoHistory: uniqBy([...videoHistory, currentVideo], 'youtubeId')
@@ -122,10 +125,13 @@ class App extends React.Component {
   };
 
   setTitle = (event) => {
+    //TODO this seems to repeat lots of handlePlayClick
     const { videoHistory } = this.state;
     let currentVideo = videoHistory.find((video) => video.youtubeId === this.state.input) || {};
     currentVideo.title = event.target.value
     currentVideo.youtubeId = this.state.input;
+    currentVideo.startTime = this.state.startTime;
+    currentVideo.endTime = this.state.endTime;
     this.setState({
       title: event.target.value,
       videoHistory: uniqBy([...videoHistory, currentVideo], 'youtubeId')
@@ -143,7 +149,7 @@ class App extends React.Component {
   };
 
   handleHistoryClick = historyItem => {
-    this.setState({ input: historyItem.youtubeId, title:historyItem.title });
+    this.setState({ input: historyItem.youtubeId, title:historyItem.title, startTime: historyItem.startTime, endTime: historyItem.endTime });
   };
 
   // copied from stackoverflow
@@ -170,6 +176,17 @@ class App extends React.Component {
       this.setState(Object.assign({}, initialState));
     }
   };
+
+  getHistoryButtons = () => uniqBy(this.state.videoHistory, 'youtubeId').map((historyItem, i)=> (
+    <HistoryButton
+      key={i}
+      onClick={() => {
+        this.handleHistoryClick(historyItem);
+      }}
+    >
+      {historyItem.title || historyItem.youtubeId}
+    </HistoryButton>
+  ))
 
   render() {
     const opts = {
@@ -251,17 +268,7 @@ class App extends React.Component {
         {this.state.videoHistory.length >= 1 && (
           <HistorySection>
             <div>History:{" "}</div>
-            {uniqBy(this.state.videoHistory, 'youtubeId').map((historyItem, i)=> console.log('history item ',historyItem) || (
-              <HistoryButton
-                key={i}
-                onClick={() => {
-                  
-                  this.handleHistoryClick(historyItem);
-                }}
-              >
-                {historyItem.title || historyItem.youtubeId}
-              </HistoryButton>
-            ))}
+            {this.getHistoryButtons()}
             <div>
               <ClearStorageButton onClick={this.clearStorage}>
                 Clear History
@@ -289,10 +296,15 @@ class App extends React.Component {
           duration: player.getDuration()
         },
         () => {
-          // jump back to the end time set by the slider
+          // always start from the start time by the slider
+          if (currentTime < this.state.startTime) {
+            player.seekTo(this.state.startTime);
+          }
+          // jump back to the start time set by the slider
           if (currentTime > this.state.endTime) {
             player.seekTo(this.state.startTime);
           }
+
         }
       );
     }, 1000);
