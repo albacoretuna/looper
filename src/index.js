@@ -74,6 +74,12 @@ const TextBox = styled.input`
   padding: 5px;
 `;
 
+const CurrentTime = styled.div`
+  color: lightblue;
+  text-align: center;
+  width: 100vw;
+`;
+
 /*
   Each video has a youubeID
   In history, keep track of each video and give it a title to be shown
@@ -188,6 +194,15 @@ class App extends React.Component {
     </HistoryButton>
   ))
 
+  getHistorySection = () => <HistorySection>
+  <div>History:{" "}</div>
+  {this.getHistoryButtons()}
+  <div>
+    <ClearStorageButton onClick={this.clearStorage}>
+      Clear History
+    </ClearStorageButton>
+  </div>
+</HistorySection>;
   render() {
     const opts = {
       height: "270",
@@ -210,12 +225,13 @@ class App extends React.Component {
         </div>
 
         <div>
-          <div style={{ color: "blue", margin: "0" }}>
+
+          <PlayButton onClick={this.handlePlayClick}>PLAY</PlayButton>
+          <CurrentTime>
             {this.state.currentTime !== undefined &&
               this.state.currentTime.toFixed(0)}
-            s{" "}
-          </div>
-          <PlayButton onClick={this.handlePlayClick}>PLAY</PlayButton>
+            {" "} s
+          </CurrentTime>
           <Label htmlFor="start">start: {this.state.startTime}s</Label>
           <Slider
             type="range"
@@ -266,15 +282,7 @@ class App extends React.Component {
           />
         </div>
         {this.state.videoHistory.length >= 1 && (
-          <HistorySection>
-            <div>History:{" "}</div>
-            {this.getHistoryButtons()}
-            <div>
-              <ClearStorageButton onClick={this.clearStorage}>
-                Clear History
-              </ClearStorageButton>
-            </div>
-          </HistorySection>
+          this.getHistorySection()
         )}
         <Footer>
           YouTube looper by Nick Okapi.{" "}
