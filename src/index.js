@@ -5,9 +5,8 @@
  * Licence: MIT
  *
  * Everything is in one file because codesandbox.io
- * once deleted my other files :(
- * 
- * TODO: on pasting new link, update title properly
+ * once went nuts and deleted all my other files:(
+ *
  * TODO: stop the whole app from rerendering each second
  **/
 
@@ -57,6 +56,17 @@ const PlayButton = styled.button`
   min-width: 300px;
 `;
 
+const PlaybackRateButton = styled.button`
+  background-color: white;
+  color: gray;
+  padding: 10px;
+  border: none;
+  border-radius: 2px;
+  margin: 10px 3px;
+  border: none;
+  min-width: 20px;
+`;
+
 const Label = styled.label`
   margin: 10px 0;
   display: block;
@@ -77,7 +87,7 @@ const TextBox = styled.input`
 const CurrentTime = styled.div`
   color: lightblue;
   text-align: center;
-  width: 100vw;
+  width: 95vw;
 `;
 
 /*
@@ -90,12 +100,19 @@ const initialState = {
   startTime: 0,
   endTime: 5,
   videoId: "",
-  // default to some cat video
+  // default to some cat video. Keeps the current youtube Id being played back
   input: "2g811Eo7K8U",
   duration: 0,
-  videoHistory: [{youtubeId: "2g811Eo7K8U", title:"cat video", startTime: 0, endTime: 5}],
+  videoHistory: [
+    { youtubeId: "2g811Eo7K8U", title: "cat video", startTime: 0, endTime: 5 }
+  ],
+  // bad naming :( It's actually the youtube URL
   cleanerInput: "",
-  title: "cat video"
+  title: "cat video",
+  // all possible rates for the current video
+  playbackRates: [1],
+  // the playback rate selected for the current video
+  playbackRate: 1
 };
 
 class App extends React.Component {
@@ -103,12 +120,13 @@ class App extends React.Component {
   componentDidMount = () => {
     const persistedState = window.localStorage.getItem("looperState");
     if (persistedState) {
-       this.setState(JSON.parse(persistedState));
+      // TODO: add some data validation to make sure version changes doesn't lead to broekn app state
+      this.setState(JSON.parse(persistedState));
     }
   };
 
   persistState = () => {
-     localStorage.setItem("looperState", JSON.stringify(this.state));
+    localStorage.setItem("looperState", JSON.stringify(this.state));
   };
 
   handleInputChange = event => {
@@ -117,32 +135,35 @@ class App extends React.Component {
 
   handlePlayClick = () => {
     const { videoHistory } = this.state;
-    let currentVideo = videoHistory.find((video) => video.youtubeId === this.state.input) || {};
-    currentVideo.title = currentVideo.title;
+    let currentVideo =
+      videoHistory.find(video => video.youtubeId === this.state.input) || {};
+    currentVideo.title = this.state.title;
     currentVideo.youtubeId = this.state.input;
     currentVideo.startTime = this.state.startTime;
     currentVideo.endTime = this.state.endTime;
-    this.setState({
-      videoId: this.state.input,
-      videoHistory: uniqBy([...videoHistory, currentVideo], 'youtubeId')
-    }, 
-    this.persistState
+    this.setState(
+      {
+        videoId: this.state.input,
+        videoHistory: uniqBy([...videoHistory, currentVideo], "youtubeId")
+      },
+      this.persistState
     );
   };
 
-  setTitle = (event) => {
+  setTitle = event => {
     //TODO this seems to repeat lots of handlePlayClick
     const { videoHistory } = this.state;
-    let currentVideo = videoHistory.find((video) => video.youtubeId === this.state.input) || {};
-    currentVideo.title = event.target.value
+    let currentVideo =
+      videoHistory.find(video => video.youtubeId === this.state.input) || {};
+    currentVideo.title = event.target.value;
     currentVideo.youtubeId = this.state.input;
     currentVideo.startTime = this.state.startTime;
     currentVideo.endTime = this.state.endTime;
     this.setState({
       title: event.target.value,
-      videoHistory: uniqBy([...videoHistory, currentVideo], 'youtubeId')
+      videoHistory: uniqBy([...videoHistory, currentVideo], "youtubeId")
     });
-  }
+  };
 
   handleStartChange = event => {
     this.setState({ startTime: parseFloat(event.target.value) });
@@ -155,23 +176,26 @@ class App extends React.Component {
   };
 
   handleHistoryClick = historyItem => {
-    this.setState({ input: historyItem.youtubeId, title:historyItem.title, startTime: historyItem.startTime, endTime: historyItem.endTime });
+    this.setState({
+      input: historyItem.youtubeId,
+      title: historyItem.title,
+      startTime: historyItem.startTime,
+      endTime: historyItem.endTime,
+      cleanerInput: "https://www.youtube.com/watch?v=" + historyItem.youtubeId
+    });
   };
 
-  // copied from stackoverflow
-  getYoutubeId = event => {
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/gim;
-    const str = event.target.value;
+  setYoutubeId = event => {
+    // copied from stackoverflow
+    const youtubeUrlRegex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/ ]{11})/gim;
 
-    let m;
-    while ((m = regex.exec(str)) !== null) {
-      // This is necessary to avoid infinite loops with zero-width matches
-      if (m.index === regex.lastIndex) {
-        regex.lastIndex++;
-      }
-      // The result can be accessed through the `m`-variable.
-      m.forEach((match, groupIndex) => {
-        this.setState({ cleanerInput: str, input: match });
+    const str = event.target.value;
+    this.setState({ cleanerInput: str });
+
+    let m = youtubeUrlRegex.exec(str);
+    if (m !== null) {
+      m.forEach(match => {
+        this.setState({ input: match, title: match });
       });
     }
   };
@@ -183,26 +207,41 @@ class App extends React.Component {
     }
   };
 
-  getHistoryButtons = () => uniqBy(this.state.videoHistory, 'youtubeId').map((historyItem, i)=> (
-    <HistoryButton
-      key={i}
-      onClick={() => {
-        this.handleHistoryClick(historyItem);
-      }}
-    >
-      {historyItem.title || historyItem.youtubeId}
-    </HistoryButton>
-  ))
+  getHistoryButtons = () =>
+    uniqBy(this.state.videoHistory, "youtubeId").map((historyItem, i) => (
+      <HistoryButton
+        key={i}
+        onClick={() => {
+          this.handleHistoryClick(historyItem);
+        }}
+      >
+        {historyItem.title || historyItem.youtubeId}
+      </HistoryButton>
+    ));
 
-  getHistorySection = () => <HistorySection>
-  <div>History:{" "}</div>
-  {this.getHistoryButtons()}
-  <div>
-    <ClearStorageButton onClick={this.clearStorage}>
-      Clear History
-    </ClearStorageButton>
-  </div>
-</HistorySection>;
+  getHistorySection = () => (
+    <HistorySection>
+      <div>History: </div>
+      {this.getHistoryButtons()}
+      <div>
+        <ClearStorageButton onClick={this.clearStorage}>
+          Clear History
+        </ClearStorageButton>
+      </div>
+    </HistorySection>
+  );
+
+  getPlayBackRateButtons = () =>(
+    <div>
+      Speed:
+    {this.state.playbackRates.map((rate, i) => <PlaybackRateButton onClick={() => {this.setPlayBackRate(rate)}}>{rate}</PlaybackRateButton>)}
+    </div>
+  );
+
+  setPlayBackRate = (rate) => {
+    this.setState({playbackRate: rate})
+  }
+
   render() {
     const opts = {
       height: "270",
@@ -225,12 +264,12 @@ class App extends React.Component {
         </div>
 
         <div>
-
           <PlayButton onClick={this.handlePlayClick}>PLAY</PlayButton>
+          {this.getPlayBackRateButtons()}
           <CurrentTime>
             {this.state.currentTime !== undefined &&
-              this.state.currentTime.toFixed(0)}
-            {" "} s
+              this.state.currentTime.toFixed(0)}{" "}
+            s
           </CurrentTime>
           <Label htmlFor="start">start: {this.state.startTime}s</Label>
           <Slider
@@ -268,7 +307,7 @@ class App extends React.Component {
             id={"youtubeUrl"}
             value={this.state.cleanerInput}
             placeholder={"paste any youtube url"}
-            onChange={this.getYoutubeId}
+            onChange={this.setYoutubeId}
           />
         </div>
         <div>
@@ -281,9 +320,7 @@ class App extends React.Component {
             onChange={this.setTitle}
           />
         </div>
-        {this.state.videoHistory.length >= 1 && (
-          this.getHistorySection()
-        )}
+        {this.state.videoHistory.length >= 1 && this.getHistorySection()}
         <Footer>
           YouTube looper by Nick Okapi.{" "}
           <a href="https://codesandbox.io/s/wkjn5r7jr5">source code</a>
@@ -294,10 +331,14 @@ class App extends React.Component {
 
   onReady = event => {
     const player = event.target;
+    // set available playback rates for the current video
+    this.setState({playbackRates: player.getAvailablePlaybackRates()})
     player.pauseVideo();
     // video loop mechanism is here
     setInterval(() => {
       let currentTime = player.getCurrentTime();
+      player.setPlaybackRate(this.state.playbackRate);
+
       this.setState(
         {
           currentTime: currentTime,
@@ -312,7 +353,6 @@ class App extends React.Component {
           if (currentTime > this.state.endTime) {
             player.seekTo(this.state.startTime);
           }
-
         }
       );
     }, 1000);
