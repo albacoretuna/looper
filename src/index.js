@@ -7,7 +7,9 @@
  * Everything is in one file because codesandbox.io
  * once went nuts and deleted all my other files:(
  *
- * TODO: stop the whole app from rerendering each second
+ * 
+ * Codesandbox: https://codesandbox.io/s/vvmjnx7n57
+ * Github: https://github.com/albacoretuna/looper
  **/
 
 import React from "react";
@@ -355,6 +357,8 @@ class App extends React.Component {
           }
         }
       );
+      // TODO: stop the whole app from rerendering each second
+
     }, 1000);
   };
 }
